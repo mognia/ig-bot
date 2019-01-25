@@ -4,7 +4,7 @@ class InstagramBot {
         this.firebase_db = require('./db');
         this.config = require('./config/puppeter.json');
     }
-    
+
     async initPuppeter() {
         const puppeteer = require('puppeteer');
         this.browser = await puppeteer.launch({
@@ -12,10 +12,10 @@ class InstagramBot {
             args: ['--no-sandbox'],
         });
         this.page = await this.browser.newPage();
-        this.page.setViewport({width: 1500, height: 764});
+        this.page.setViewport({ width: 1500, height: 764 });
     }
     async visitInstagram() {
-        await this.page.goto(this.config.base_url, {timeout: 60000});
+        await this.page.goto(this.config.base_url, { timeout: 60000 });
         await this.page.waitFor(3000);
         await this.page.click(this.config.selectors.home_to_login_button);
         await this.page.waitFor(3000);
@@ -42,58 +42,45 @@ class InstagramBot {
         }
     }
 
-    async _doPostLikeAndFollow (parentClass, page){
-
-        for (let r = 1; r < 4; r++) {//loops through each row
-            console.log(`r = ${r}`);
-            console.log(`parent = ${parentClass}`);
-            for (let c = 1; c < 4; c++) {//loops through each item in the row
-                console.log(`c = ${c}`);    
-                let br = false;
-                //Try to select post
-                await page.waitForSelector(`${parentClass} > div > div > .Nnq7C:nth-child(${r}) > .v1Nh3:nth-child(${c}) > a`);
-                await page.click(`${parentClass} > div > div > .Nnq7C:nth-child(${r}) > .v1Nh3:nth-child(${c}) > a`)
+    async _doPostLikeAndFollow(parentClass, page) {
+        for (let r = 1; r < 2; r++) {//loops through each row in top posts
+            for (let c = 1; c < 4; c++) {//loops through each item in the row  in top posts
+                await page.waitForSelector(`${this.config.selectors.hash_tags_top_posts} > div > div > .Nnq7C:nth-child(${r}) > .v1Nh3:nth-child(${c}) > a`);
+                await page.click(`${this.config.selectors.hash_tags_top_posts} > div > div > .Nnq7C:nth-child(${r}) > .v1Nh3:nth-child(${c}) > a`)
                     .catch((e) => {
                         console.log(e.message);
-                        br = true;
+                        // br = true;
                     });
                 await page.waitFor(2250 + Math.floor(Math.random() * 250));//wait for random amount of time
-                if (br) continue;//if successfully selecting post continue
-                //get the current post like status by checking if the selector exist
-                 
-                let hasEmptyHeart = await page.$(this.config.selectors.post_heart_grey);
-                    console.log(`heart = ${hasEmptyHeart}`);
-                    
-    
                 //get the username of the current post
                 let username = await page.evaluate(x => {
                     let element = document.querySelector(x);
-                    return Promise.resolve(element ? element.innerHTML : '');
+                    return Promise.resolve(element ? element.innerHTML : ``);
                 }, this.config.selectors.post_username);
                 console.log(`INTERACTING WITH ${username}'s POST`);
-    
-    
+                //get the current post like status by checking if the selector exist
+                let hasEmptyHeart = await page.$(this.config.selectors.post_heart_grey);
                 //like the post if not already liked. Check against our like ratio so we don't just like all post
-                if (hasEmptyHeart !== null && Math.random() < this.config.settings.like_ratio) {
+                if (hasEmptyHeart != null && Math.random() < this.config.settings.like_ratio) {
                     const shuffle = require('shuffle-array');
                     let comments = shuffle(this.config.comments);
+                    await page.waitForSelector(this.config.selectors.post_like_button);
                     await page.click(this.config.selectors.post_like_button);//click the like button
                     await page.waitFor(10 + Math.floor(Math.random() * 5000));// wait for random amount of time.
-                    await page.type('textarea[class=Ypffh]', comments[0], {delay: 20});
+                    await page.type('textarea[class=Ypffh]', comments[0], { delay: 20 });
                     await page.keyboard.press('Enter');
                 }
-    
                 //let's check from our archive if we've follow this user before
                 let isArchivedUser = null;
                 await this.firebase_db.inHistory(username).then(data => isArchivedUser = data)
                     .catch(() => isArchivedUser = false);
-    
+
                 //get the current status of the current user using the text content of the follow button selector
                 let followStatus = await page.evaluate(x => {
                     let element = document.querySelector(x);
-                    return Promise.resolve(element ? element.innerHTML : '');
+                    return Promise.resolve(element ? element.innerHTML : ``);
                 }, this.config.selectors.post_follow_link);
-    
+
                 console.log("followStatus", followStatus);
                 //If the text content of followStatus selector is Follow and we have not follow this user before
                 // Save his name in the list of user we now follow and follow him, else log that we already follow him
@@ -109,7 +96,79 @@ class InstagramBot {
                         console.log('<<< POSSIBLE ERROR >>>' + username + ':' + e.message);
                     });
                 }
-    
+
+                //Closing the current post modal
+                await page.click(this.config.selectors.post_close_button)
+                    .catch((e) => console.log('<<< ERROR CLOSING POST >>> ' + e.message));
+                //Wait for random amount of time
+                await page.waitFor(2250 + Math.floor(Math.random() * 250));
+            }
+
+        }
+        for (let r = 1; r < 4; r++) {//loops through each row in last posts
+            for (let c = 1; c < 4; c++) {//loops through each item in the row  in last posts
+                await page.waitForSelector(`${parentClass} > div > div > .Nnq7C:nth-child(${r}) > .v1Nh3:nth-child(${c}) > a`);
+                console.log(`r = ${r}`);
+                console.log(`c = ${c}`);
+                let br = false;
+                //Try to select post
+                await page.click(`${parentClass} > div > div > .Nnq7C:nth-child(${r}) > .v1Nh3:nth-child(${c}) > a`)
+                    .catch((e) => {
+                        console.log(e.message);
+                        // br = true;
+                    });
+                await page.waitFor(2250 + Math.floor(Math.random() * 250));//wait for random amount of time
+                if (br) continue;//if successfully selecting post continue
+
+
+                //get the username of the current post
+                let username = await page.evaluate(x => {
+                    let element = document.querySelector(x);
+                    return Promise.resolve(element ? element.innerHTML : ``);
+                }, this.config.selectors.post_username);
+                console.log(`INTERACTING WITH ${username}'s POST`);
+
+
+                //get the current post like status by checking if the selector exist
+                let hasEmptyHeart = await page.$(this.config.selectors.post_heart_grey);
+                //like the post if not already liked. Check against our like ratio so we don't just like all post
+                if (hasEmptyHeart != null && Math.random() < this.config.settings.like_ratio) {
+                    const shuffle = require('shuffle-array');
+                    let comments = shuffle(this.config.comments);
+                    await page.waitForSelector(this.config.selectors.post_like_button);
+                    await page.click(this.config.selectors.post_like_button);//click the like button
+                    await page.waitFor(10 + Math.floor(Math.random() * 5000));// wait for random amount of time.
+                    await page.type('textarea[class=Ypffh]', comments[0], { delay: 20 });
+                    await page.keyboard.press('Enter');
+                }
+
+                //let's check from our archive if we've follow this user before
+                let isArchivedUser = null;
+                await this.firebase_db.inHistory(username).then(data => isArchivedUser = data)
+                    .catch(() => isArchivedUser = false);
+
+                //get the current status of the current user using the text content of the follow button selector
+                let followStatus = await page.evaluate(x => {
+                    let element = document.querySelector(x);
+                    return Promise.resolve(element ? element.innerHTML : ``);
+                }, this.config.selectors.post_follow_link);
+
+                console.log("followStatus", followStatus);
+                //If the text content of followStatus selector is Follow and we have not follow this user before
+                // Save his name in the list of user we now follow and follow him, else log that we already follow him
+                // or show any possible error
+                if (followStatus === 'Follow' && !isArchivedUser) {
+                    await this.firebase_db.addFollowing(username).then(() => {
+                        return page.click(this.config.selectors.post_follow_link);
+                    }).then(() => {
+                        console.log('<<< STARTED FOLLOWING >>> ' + username);
+                        return page.waitFor(10000 + Math.floor(Math.random() * 5000));
+                    }).catch((e) => {
+                        console.log('<<< ALREADY FOLLOWING >>> ' + username);
+                        console.log('<<< POSSIBLE ERROR >>>' + username + ':' + e.message);
+                    });
+                }
+
                 //Closing the current post modal
                 await page.click(this.config.selectors.post_close_button)
                     .catch((e) => console.log('<<< ERROR CLOSING POST >>> ' + e.message));
@@ -121,7 +180,7 @@ class InstagramBot {
 
     async unFollowUsers() {
         let date_range = new Date().getTime() - (this.config.settings.unfollow_after_days * 86400000);
-    
+
         // get the list of users we are currently following
         let following = await this.firebase_db.getFollowings();
         let users_to_unfollow = [];
@@ -130,18 +189,18 @@ class InstagramBot {
             // filter our current following to get users we've been following since day specified in config
             users_to_unfollow = all_users.filter(user => following[user].added < date_range);
         }
-    
+
         if (users_to_unfollow.length) {
             for (let n = 0; n < users_to_unfollow.length; n++) {
                 let user = users_to_unfollow[n];
                 await this.page.goto(`${this.config.base_url}/${user}/?hl=en`);
                 await this.page.waitFor(1500 + Math.floor(Math.random() * 500));
-    
+
                 let followStatus = await this.page.evaluate(x => {
                     let element = document.querySelector(x);
                     return Promise.resolve(element ? element.innerHTML : '');
                 }, this.config.selectors.user_unfollow_button);
-    
+
                 if (followStatus === 'Following') {
                     console.log('<<< UNFOLLOW USER >>>' + user);
                     //click on unfollow button
@@ -159,13 +218,13 @@ class InstagramBot {
                     this.firebase_db.unFollow(user);
                 }
             }
-    
+
         }
     }
-    async closeBrowser(){
+    async closeBrowser() {
         await this.browser.close();
     }
 
-    
+
 }
 module.exports = InstagramBot;
